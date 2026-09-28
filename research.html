@@ -151,11 +151,32 @@
     cursor: pointer;
     font-family: inherit;
   }
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
   .list h2 {
     font-size: 14px;
     color: #888;
-    margin-bottom: 10px;
+    margin-bottom: 0;
     font-weight: 600;
+  }
+  button.backup {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #fff;
+    color: #555;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.backup:disabled {
+    color: #bbb;
+    border-color: #eee;
+    cursor: not-allowed;
   }
   .entry-list {
     display: flex;
@@ -274,7 +295,10 @@
     </form>
 
     <div class="list">
-      <h2>記録</h2>
+      <div class="list-header">
+        <h2>記録</h2>
+        <button type="button" class="backup" id="backupBtn">テキストで書き出す</button>
+      </div>
       <div class="entry-list" id="entryList"></div>
     </div>
   </div>
@@ -444,9 +468,73 @@
       return `<div class="row"><span class="row-label">${escapeHtml(label)}:</span> ${escapeHtml(value)}</div>`;
     }
 
+    function backupRowLine(label, value) {
+      if (!value) return '';
+      return `${label}: ${value}\n`;
+    }
+
+    function buildBackupText(records) {
+      const sorted = [...records].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+      const now = new Date();
+      const lines = [];
+      lines.push('クロアチアでの会話記録バックアップ');
+      lines.push(`書き出し日時: ${now.toLocaleString('ja-JP')}`);
+      lines.push(`件数: ${records.length}件`);
+      lines.push('');
+
+      sorted.forEach((r, i) => {
+        lines.push(`--- ${i + 1}件目 ---`);
+        lines.push(`日付: ${r.date}`);
+        lines.push(`場所: ${r.place}`);
+        lines.push(backupRowLine('業種', r.industry).trimEnd());
+        lines.push(backupRowLine('興味', r.interests).trimEnd());
+        lines.push(backupRowLine('欲しい商品・サービス', r.wantedProducts).trimEnd());
+        lines.push(backupRowLine('伝えたこと・反応', r.sharedAndReaction).trimEnd());
+        lines.push(backupRowLine('文化メモ', r.culturalNotes).trimEnd());
+        lines.push('');
+      });
+
+      return lines.filter((line, i, arr) => !(line === '' && arr[i - 1] === '')).join('\n');
+    }
+
+    async function exportRecordsAsText() {
+      const records = loadRecords();
+      if (records.length === 0) return;
+
+      const text = buildBackupText(records);
+      const filename = `croatia-notes-backup-${todayValue().replace(/-/g, '')}.txt`;
+      const file = new File([text], filename, { type: 'text/plain' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          return;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+        }
+      }
+
+      try {
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert('バックアップファイルの書き出しに失敗しました。');
+      }
+    }
+
+    document.getElementById('backupBtn').addEventListener('click', exportRecordsAsText);
+
     function render() {
       const records = loadRecords();
       document.getElementById('countNumber').textContent = records.length;
+      document.getElementById('backupBtn').disabled = records.length === 0;
 
       const entryList = document.getElementById('entryList');
       if (records.length === 0) {
