@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クロアチアでの会話記録</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic", -apple-system, sans-serif;
+    background: linear-gradient(135deg, #eaf1ff, #fdf1f2);
+    color: #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .card {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    padding: 40px 36px;
+    max-width: 520px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  .checker-strip {
+    height: 16px;
+    margin: -40px -36px 24px;
+    background-image:
+      linear-gradient(45deg, #d0021b 25%, transparent 25%, transparent 75%, #d0021b 75%),
+      linear-gradient(45deg, #d0021b 25%, #ffffff 25%, #ffffff 75%, #d0021b 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: 24px;
+    text-align: center;
+    color: #14226b;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  .summary {
+    text-align: center;
+    background: linear-gradient(135deg, #3b5fe2, #14226b);
+    color: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .summary .number {
+    font-size: 40px;
+    font-weight: bold;
+    line-height: 1;
+  }
+  .summary .label {
+    font-size: 13px;
+    margin-top: 4px;
+    opacity: 0.9;
+  }
+  .save-error-banner {
+    display: none;
+    background: #fdecea;
+    border: 2px solid #d93025;
+    color: #a50e0e;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .save-error-banner.visible {
+    display: block;
+  }
+  .save-error-banner .title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .save-error-banner .detail {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  form {
+    margin-bottom: 28px;
+  }
+  .field {
+    margin-bottom: 14px;
+  }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 6px;
+  }
+  .field input,
+  .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+  }
+  .field textarea {
+    min-height: 56px;
+  }
+  .field-error {
+    color: #d93025;
+    font-size: 12px;
+    margin-top: 4px;
+    display: none;
+  }
+  .field-error.visible {
+    display: block;
+  }
+  .form-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  button.primary {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #e2001a, #a80014);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.secondary {
+    padding: 12px 16px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background: #fff;
+    color: #555;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .list h2 {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .entry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .entry {
+    background: #f5f7ff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border-left: 3px solid #3b5fe2;
+  }
+  .entry .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .entry .head .place {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .entry .head .date {
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+  }
+  .entry .row {
+    font-size: 13px;
+    color: #444;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+  .entry .row .row-label {
+    color: #b3001b;
+    font-weight: 600;
+  }
+  .entry .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .entry .actions button {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    color: #555;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .entry .actions button.delete {
+    color: #d93025;
+    border-color: #f3c6c2;
+  }
+  .empty {
+    text-align: center;
+    color: #bbb;
+    font-size: 13px;
+    padding: 20px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="checker-strip"></div>
+    <div class="save-error-banner" id="saveErrorBanner" role="alert">
+      <div class="title" id="saveErrorTitle"></div>
+      <div class="detail" id="saveErrorDetail"></div>
+    </div>
+
+    <h1>🇭🇷 クロアチアでの会話記録</h1>
+
+    <div class="summary">
+      <div class="number" id="countNumber">0</div>
+      <div class="label">人と話した</div>
+    </div>
+
+    <form id="entryForm">
+      <div class="field">
+        <label for="fieldDate">日付</label>
+        <input type="date" id="fieldDate">
+        <div class="field-error" id="errorDate">日付を入力してください</div>
+      </div>
+      <div class="field">
+        <label for="fieldPlace">場所</label>
+        <input type="text" id="fieldPlace">
+        <div class="field-error" id="errorPlace">場所を入力してください</div>
+      </div>
+      <div class="field">
+        <label for="fieldIndustry">相手の業種</label>
+        <input type="text" id="fieldIndustry">
+      </div>
+      <div class="field">
+        <label for="fieldInterests">日本の好きなところ・興味のあること</label>
+        <textarea id="fieldInterests"></textarea>
+      </div>
+      <div class="field">
+        <label for="fieldWantedProducts">日本のどんな商品・サービスなら買いたいか</label>
+        <textarea id="fieldWantedProducts"></textarea>
+      </div>
+      <div class="field">
+        <label for="fieldShared">自分が日本について伝えたこと・相手の反応</label>
+        <textarea id="fieldShared"></textarea>
+      </div>
+      <div class="field">
+        <label for="fieldCulturalNotes">気づいた文化的なメモ</label>
+        <textarea id="fieldCulturalNotes"></textarea>
+      </div>
+      <div class="form-buttons">
+        <button type="submit" class="primary" id="submitBtn">記録する</button>
+        <button type="button" class="secondary" id="cancelEditBtn" style="display: none;">キャンセル</button>
+      </div>
+    </form>
+
+    <div class="list">
+      <h2>記録</h2>
+      <div class="entry-list" id="entryList"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'research-conversations';
+    const BACKUP_KEY = 'research-conversations-backup';
+    const CORRUPT_KEY = 'research-conversations-corrupt';
+
+    let editingId = null;
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function loadRecords() {
+      let records;
+      try {
+        records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch (e) {
+        records = [];
+      }
+      if (!Array.isArray(records)) records = [];
+      return records;
+    }
+
+    function showSaveError(title, details) {
+      document.getElementById('saveErrorTitle').textContent = title;
+      document.getElementById('saveErrorDetail').textContent = details.join(' ');
+      document.getElementById('saveErrorBanner').classList.add('visible');
+    }
+
+    function clearSaveError() {
+      document.getElementById('saveErrorBanner').classList.remove('visible');
+    }
+
+    function saveRecords(records) {
+      const problems = [];
+      const serialized = JSON.stringify(records);
+
+      let before = null;
+      let beforeReadable = true;
+      try {
+        before = localStorage.getItem(STORAGE_KEY);
+      } catch (e) {
+        beforeReadable = false;
+        problems.push('保存領域を読み取れませんでした。');
+      }
+
+      let previousIds = [];
+      if (before !== null) {
+        let parsed = null;
+        let parseOk = false;
+        try {
+          parsed = JSON.parse(before);
+          parseOk = true;
+        } catch (e) {}
+        try {
+          if (parseOk) {
+            localStorage.setItem(BACKUP_KEY, before);
+            if (Array.isArray(parsed)) previousIds = parsed.map((r) => r.id);
+          } else {
+            localStorage.setItem(CORRUPT_KEY, before);
+            problems.push('既存の記録が壊れていたため、別のキー(' + CORRUPT_KEY + ')に退避しました。');
+          }
+        } catch (e) {
+          problems.push('バックアップの作成に失敗しました。');
+        }
+      }
+
+      let writeFailed = false;
+      try {
+        localStorage.setItem(STORAGE_KEY, serialized);
+        const after = localStorage.getItem(STORAGE_KEY);
+        if (after !== serialized) {
+          writeFailed = true;
+          problems.push('書き込んだ内容を読み戻すと一致しませんでした。');
+        } else {
+          const saved = JSON.parse(after);
+          const savedIds = new Set(saved.map((r) => r.id));
+          const intendedIds = new Set(records.map((r) => r.id));
+          const missing = previousIds.filter((id) => intendedIds.has(id) && !savedIds.has(id));
+          if (missing.length > 0) {
+            writeFailed = true;
+            problems.push('以前の記録' + missing.length + '件が保存後に見つかりませんでした。');
+          }
+        }
+      } catch (e) {
+        writeFailed = true;
+        problems.push('書き込みに失敗しました(ストレージのブロックまたは容量超過の可能性)。');
+      }
+
+      if (writeFailed && beforeReadable) {
+        try {
+          if (before !== null) {
+            localStorage.setItem(STORAGE_KEY, before);
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
+          }
+          if (localStorage.getItem(STORAGE_KEY) === before) {
+            problems.push('保存前の状態に戻しました。');
+          } else {
+            problems.push('保存前の状態に戻せたか確認できませんでした。バックアップ(' + BACKUP_KEY + ')を確認してください。');
+          }
+        } catch (e) {
+          problems.push('保存前の状態への復元にも失敗しました。バックアップ(' + BACKUP_KEY + ')を確認してください。');
+        }
+      }
+
+      if (writeFailed) {
+        showSaveError('⚠️ 記録が保存できていない可能性があります', problems);
+      } else if (problems.length > 0) {
+        showSaveError('⚠️ 記録は保存されましたが、注意が必要です', problems);
+      } else {
+        clearSaveError();
+      }
+      return !writeFailed;
+    }
+
+    function todayValue() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function resetForm() {
+      editingId = null;
+      document.getElementById('entryForm').reset();
+      document.getElementById('fieldDate').value = todayValue();
+      document.getElementById('submitBtn').textContent = '記録する';
+      document.getElementById('cancelEditBtn').style.display = 'none';
+      document.getElementById('errorDate').classList.remove('visible');
+      document.getElementById('errorPlace').classList.remove('visible');
+    }
+
+    function startEdit(id) {
+      const records = loadRecords();
+      const record = records.find((r) => r.id === id);
+      if (!record) return;
+      editingId = id;
+      document.getElementById('fieldDate').value = record.date;
+      document.getElementById('fieldPlace').value = record.place;
+      document.getElementById('fieldIndustry').value = record.industry || '';
+      document.getElementById('fieldInterests').value = record.interests || '';
+      document.getElementById('fieldWantedProducts').value = record.wantedProducts || '';
+      document.getElementById('fieldShared').value = record.sharedAndReaction || '';
+      document.getElementById('fieldCulturalNotes').value = record.culturalNotes || '';
+      document.getElementById('submitBtn').textContent = '更新する';
+      document.getElementById('cancelEditBtn').style.display = 'inline-block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function deleteEntry(id) {
+      if (!confirm('この記録を削除しますか?')) return;
+      const records = loadRecords().filter((r) => r.id !== id);
+      saveRecords(records);
+      if (editingId === id) resetForm();
+      render();
+    }
+
+    function renderRow(label, value) {
+      if (!value) return '';
+      return `<div class="row"><span class="row-label">${escapeHtml(label)}:</span> ${escapeHtml(value)}</div>`;
+    }
+
+    function render() {
+      const records = loadRecords();
+      document.getElementById('countNumber').textContent = records.length;
+
+      const entryList = document.getElementById('entryList');
+      if (records.length === 0) {
+        entryList.innerHTML = '<div class="empty">まだ記録がありません</div>';
+        return;
+      }
+
+      const sorted = [...records].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      entryList.innerHTML = sorted
+        .map((r) => {
+          return `<div class="entry">
+            <div class="head">
+              <span class="place">${escapeHtml(r.place)}</span>
+              <span class="date">${escapeHtml(r.date)}</span>
+            </div>
+            ${renderRow('業種', r.industry)}
+            ${renderRow('興味', r.interests)}
+            ${renderRow('欲しい商品・サービス', r.wantedProducts)}
+            ${renderRow('伝えたこと・反応', r.sharedAndReaction)}
+            ${renderRow('文化メモ', r.culturalNotes)}
+            <div class="actions">
+              <button type="button" data-edit="${r.id}">編集</button>
+              <button type="button" class="delete" data-delete="${r.id}">削除</button>
+            </div>
+          </div>`;
+        })
+        .join('');
+
+      entryList.querySelectorAll('[data-edit]').forEach((btn) => {
+        btn.addEventListener('click', () => startEdit(btn.getAttribute('data-edit')));
+      });
+      entryList.querySelectorAll('[data-delete]').forEach((btn) => {
+        btn.addEventListener('click', () => deleteEntry(btn.getAttribute('data-delete')));
+      });
+    }
+
+    document.getElementById('entryForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const date = document.getElementById('fieldDate').value.trim();
+      const place = document.getElementById('fieldPlace').value.trim();
+
+      const dateError = document.getElementById('errorDate');
+      const placeError = document.getElementById('errorPlace');
+      dateError.classList.toggle('visible', !date);
+      placeError.classList.toggle('visible', !place);
+      if (!date || !place) return;
+
+      const records = loadRecords();
+      const payload = {
+        date,
+        place,
+        industry: document.getElementById('fieldIndustry').value.trim(),
+        interests: document.getElementById('fieldInterests').value.trim(),
+        wantedProducts: document.getElementById('fieldWantedProducts').value.trim(),
+        sharedAndReaction: document.getElementById('fieldShared').value.trim(),
+        culturalNotes: document.getElementById('fieldCulturalNotes').value.trim(),
+      };
+
+      if (editingId) {
+        const idx = records.findIndex((r) => r.id === editingId);
+        if (idx !== -1) {
+          records[idx] = { ...records[idx], ...payload };
+        }
+      } else {
+        records.push({
+          id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          ...payload,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      saveRecords(records);
+      resetForm();
+      render();
+    });
+
+    document.getElementById('cancelEditBtn').addEventListener('click', () => {
+      resetForm();
+    });
+
+    resetForm();
+    render();
+  </script>
+</body>
+</html>
