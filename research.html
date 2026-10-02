@@ -178,6 +178,15 @@
     border-color: #eee;
     cursor: not-allowed;
   }
+  #searchInput {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
   .entry-list {
     display: flex;
     flex-direction: column;
@@ -299,6 +308,7 @@
         <h2>記録</h2>
         <button type="button" class="backup" id="backupBtn">テキストで書き出す</button>
       </div>
+      <input type="text" id="searchInput" placeholder="キーワードで検索(場所・業種・興味・商品/サービス・伝えたこと・文化メモ)">
       <div class="entry-list" id="entryList"></div>
     </div>
   </div>
@@ -531,18 +541,35 @@
 
     document.getElementById('backupBtn').addEventListener('click', exportRecordsAsText);
 
+    function matchesSearch(record, keyword) {
+      const fields = [
+        record.place,
+        record.industry,
+        record.interests,
+        record.wantedProducts,
+        record.sharedAndReaction,
+        record.culturalNotes,
+      ];
+      return fields.some((value) => (value || '').toLowerCase().includes(keyword));
+    }
+
     function render() {
       const records = loadRecords();
       document.getElementById('countNumber').textContent = records.length;
       document.getElementById('backupBtn').disabled = records.length === 0;
 
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const filtered = keyword ? records.filter((r) => matchesSearch(r, keyword)) : records;
+
       const entryList = document.getElementById('entryList');
-      if (records.length === 0) {
-        entryList.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      if (filtered.length === 0) {
+        entryList.innerHTML = records.length === 0
+          ? '<div class="empty">まだ記録がありません</div>'
+          : '<div class="empty">該当する記録がありません</div>';
         return;
       }
 
-      const sorted = [...records].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      const sorted = [...filtered].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       entryList.innerHTML = sorted
         .map((r) => {
           return `<div class="entry">
@@ -615,6 +642,8 @@
     document.getElementById('cancelEditBtn').addEventListener('click', () => {
       resetForm();
     });
+
+    document.getElementById('searchInput').addEventListener('input', render);
 
     resetForm();
     render();
