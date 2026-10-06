@@ -178,6 +178,21 @@
     border-color: #eee;
     cursor: not-allowed;
   }
+  .list-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .list h2 {
+    white-space: nowrap;
+  }
+  .header-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .header-buttons button.backup {
+    white-space: nowrap;
+  }
   #searchInput {
     width: 100%;
     padding: 10px 12px;
@@ -306,7 +321,11 @@
     <div class="list">
       <div class="list-header">
         <h2>記録</h2>
-        <button type="button" class="backup" id="backupBtn">テキストで書き出す</button>
+        <div class="header-buttons">
+          <button type="button" class="backup" id="importBtn">バックアップを読み込む</button>
+          <button type="button" class="backup" id="backupBtn">テキストで書き出す</button>
+        </div>
+        <input type="file" id="importFile" accept=".txt,text/plain" style="display: none;">
       </div>
       <input type="text" id="searchInput" placeholder="キーワードで検索(場所・業種・興味・商品/サービス・伝えたこと・文化メモ)">
       <div class="entry-list" id="entryList"></div>
@@ -540,6 +559,131 @@
     }
 
     document.getElementById('backupBtn').addEventListener('click', exportRecordsAsText);
+
+    const BACKUP_HEADER = 'クロアチアでの会話記録バックアップ';
+    const BACKUP_LABELS = {
+      '日付': 'date',
+      '場所': 'place',
+      '業種': 'industry',
+      '興味': 'interests',
+      '欲しい商品・サービス': 'wantedProducts',
+      '伝えたこと・反応': 'sharedAndReaction',
+      '文化メモ': 'culturalNotes',
+    };
+    const RECORD_FIELDS = Object.values(BACKUP_LABELS);
+
+    // buildBackupText の逆変換。ラベル行以外は直前の項目の続き(複数行の値)として扱う
+    function parseBackupText(text) {
+      const normalized = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+      if (!normalized.includes(BACKUP_HEADER)) return null;
+
+      const blocks = normalized.split(/^--- \d+件目 ---$/m).slice(1);
+      const labelPattern = /^(日付|場所|業種|興味|欲しい商品・サービス|伝えたこと・反応|文化メモ): ?(.*)$/;
+      const valid = [];
+      let unreadable = 0;
+
+      blocks.forEach((block) => {
+        const rec = {};
+        let current = null;
+        block.split('\n').forEach((line) => {
+          const m = line.match(labelPattern);
+          if (m) {
+            current = BACKUP_LABELS[m[1]];
+            rec[current] = m[2];
+          } else if (current) {
+            rec[current] += '\n' + line;
+          }
+        });
+        RECORD_FIELDS.forEach((f) => { rec[f] = (rec[f] || '').trim(); });
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rec.date) && rec.place) {
+          valid.push(rec);
+        } else {
+          unreadable++;
+        }
+      });
+      return { records: valid, unreadable };
+    }
+
+    // 内容が同じかどうかの判定用(バックアップには id がないため内容で比べる)
+    function recordKey(r) {
+      return RECORD_FIELDS
+        .map((f) => String(r[f] || '').replace(/\s+/g, ' ').trim())
+        .join('\u0001');
+    }
+
+    function importRecordsFromText(text) {
+      // 既存の保存値が壊れている場合は、上書きを避けるため何もせず中止する
+      let existing = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw !== null) {
+          existing = JSON.parse(raw);
+          if (!Array.isArray(existing)) throw new Error('not array');
+        }
+      } catch (e) {
+        alert('今ある記録を正しく読み取れないため、読み込みを中止しました。記録は変更していません。');
+        return;
+      }
+
+      const parsed = parseBackupText(text);
+      if (!parsed) {
+        alert('バックアップファイルではないようです。「テキストで書き出す」で保存した .txt を選んでください。');
+        return;
+      }
+
+      const seen = new Set(existing.map(recordKey));
+      const fresh = [];
+      let duplicates = 0;
+      parsed.records.forEach((rec) => {
+        const key = recordKey(rec);
+        if (seen.has(key)) {
+          duplicates++;
+        } else {
+          seen.add(key);
+          fresh.push(rec);
+        }
+      });
+
+      const summary = `追加できる記録: ${fresh.length}件 / 重複でスキップ: ${duplicates}件`
+        + (parsed.unreadable > 0 ? ` / 読み取れなかった記録: ${parsed.unreadable}件` : '');
+
+      if (fresh.length === 0) {
+        alert('追加する記録はありませんでした。\n' + summary);
+        return;
+      }
+      if (!confirm(summary + '\n今ある記録は消さずに追加します。よろしいですか?')) return;
+
+      const base = Date.now();
+      const additions = fresh.map((rec, i) => ({
+        id: 'r_' + (base + i) + '_' + Math.random().toString(36).slice(2, 8),
+        ...rec,
+        createdAt: new Date(base + i).toISOString(),
+      }));
+
+      if (saveRecords([...existing, ...additions])) {
+        render();
+        alert(`${additions.length}件の記録を追加しました。`);
+      } else {
+        render();
+      }
+    }
+
+    document.getElementById('importBtn').addEventListener('click', () => {
+      document.getElementById('importFile').click();
+    });
+
+    document.getElementById('importFile').addEventListener('change', async (e) => {
+      const input = e.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        importRecordsFromText(text);
+      } catch (err) {
+        alert('ファイルを読み込めませんでした。');
+      }
+      input.value = '';
+    });
 
     function matchesSearch(record, keyword) {
       const fields = [
