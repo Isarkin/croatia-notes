@@ -264,6 +264,86 @@
     font-size: 13px;
     padding: 20px;
   }
+  /* 統計パネル(記録を読むだけの表示) */
+  .stats-panel {
+    background: #f5f7ff;
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+  .stats-panel > summary {
+    cursor: pointer;
+    padding: 14px 16px;
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #14226b;
+  }
+  .stats-body-wrap {
+    padding: 0 16px 16px;
+  }
+  .stats-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .stats-tabs button {
+    flex: 1;
+    min-height: 44px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background: #fff;
+    color: #555;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 0 4px;
+  }
+  .stats-tabs button.active {
+    background: #3b5fe2;
+    border-color: #3b5fe2;
+    color: #fff;
+    font-weight: 600;
+  }
+  .stats-row {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  .stats-row-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .stats-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #333;
+  }
+  .stats-count {
+    white-space: nowrap;
+    font-weight: 700;
+    color: #b3001b;
+  }
+  .stats-bar {
+    height: 6px;
+    margin-top: 4px;
+    border-radius: 3px;
+    background: #dde4fb;
+  }
+  .stats-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: #3b5fe2;
+  }
+  .stats-note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #888;
+  }
+  @media (max-width: 480px) {
+    .stats-panel > summary { padding: 12px; }
+    .stats-body-wrap { padding: 0 12px 12px; }
+  }
 </style>
 </head>
 <body>
@@ -280,6 +360,18 @@
       <div class="number" id="countNumber">0</div>
       <div class="label">人と話した</div>
     </div>
+
+    <details class="stats-panel">
+      <summary>統計を見る</summary>
+      <div class="stats-body-wrap">
+        <div class="stats-tabs" id="statsTabs">
+          <button type="button" class="active" data-stats-field="industry">業種</button>
+          <button type="button" data-stats-field="interests">興味</button>
+          <button type="button" data-stats-field="wantedProducts">商品・サービス</button>
+        </div>
+        <div id="statsBody"></div>
+      </div>
+    </details>
 
     <form id="entryForm">
       <div class="field">
@@ -697,8 +789,66 @@
       return fields.some((value) => (value || '').toLowerCase().includes(keyword));
     }
 
+    // ---- 統計表示(記録を読むだけ。保存はしない) ----
+    let statsField = 'industry';
+    const STATS_SPLIT_FIELDS = ['interests', 'wantedProducts'];
+
+    // 業種は1記録=1項目、興味・欲しい商品・サービスは改行・「、」「,」「/」で分割して数える。
+    // 同じ記録内の重複は1回だけ数える。表記は前後の空白と大文字小文字の違いを同一視する。
+    function statsCount(records, field) {
+      const counts = new Map();
+      records.forEach((r) => {
+        const raw = String((r && r[field]) || '');
+        const parts = STATS_SPLIT_FIELDS.includes(field) ? raw.split(/[\n、,,\//]+/) : [raw];
+        const seen = new Set();
+        parts.forEach((p) => {
+          const name = p.trim();
+          if (!name) return;
+          const key = name.toLowerCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          const entry = counts.get(key);
+          if (entry) entry.count += 1;
+          else counts.set(key, { name, count: 1 });
+        });
+      });
+      return [...counts.values()].sort(
+        (a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja')
+      );
+    }
+
+    function renderStats(records) {
+      document.querySelectorAll('#statsTabs button').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-stats-field') === statsField);
+      });
+      const body = document.getElementById('statsBody');
+      const rows = statsCount(records, statsField);
+      if (rows.length === 0) {
+        body.innerHTML = '<div class="empty">まだ集計できる記録がありません</div>';
+        return;
+      }
+      const max = rows[0].count;
+      body.innerHTML = rows
+        .map((row) => `<div class="stats-row">
+          <div class="stats-row-head">
+            <span class="stats-name">${escapeHtml(row.name)}</span>
+            <span class="stats-count">${row.count}件</span>
+          </div>
+          <div class="stats-bar"><div class="stats-bar-fill" style="width: ${Math.round((row.count / max) * 100)}%"></div></div>
+        </div>`)
+        .join('') + '<div class="stats-note">検索の絞り込みに関係なく、すべての記録が対象です</div>';
+    }
+
+    document.getElementById('statsTabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-stats-field]');
+      if (!btn) return;
+      statsField = btn.getAttribute('data-stats-field');
+      renderStats(loadRecords());
+    });
+
     function render() {
       const records = loadRecords();
+      renderStats(records);
       document.getElementById('countNumber').textContent = records.length;
       document.getElementById('backupBtn').disabled = records.length === 0;
 
